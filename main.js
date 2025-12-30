@@ -116,7 +116,7 @@ function checkGameOver() {
 
     for (const body of bodies) {
         if (body.label === 'wall' || body.label === 'ghost') continue;
-        
+
         // Check if any fruit is above the line and is settled (slow velocity)
         if (body.position.y < DANGER_LINE_Y) {
             // Check velocity to ensure it's not just flying up temporarily
@@ -152,14 +152,14 @@ function resetGame() {
     score = 0;
     scoreElement.textContent = score;
     disableAction = false;
-    
+
     // Remove all fruits
     const bodies = Composite.allBodies(world);
     const fruitsToRemove = bodies.filter(b => b.label !== 'wall' && b.label !== 'ghost');
     World.remove(world, fruitsToRemove);
 
     document.getElementById('game-over-overlay').classList.remove('visible');
-    
+
     // Reset next fruit
     prepareNewFruit();
 }
@@ -170,11 +170,11 @@ function createPopEffect(x, y) {
     effect.style.left = `${x}px`;
     effect.style.top = `${y}px`;
     gameContainer.appendChild(effect);
-    
+
     // Cleanup
     setTimeout(() => {
         effect.remove();
-    }, 400); 
+    }, 400);
 }
 
 function triggerScoreAnimation() {
@@ -191,7 +191,7 @@ function prepareNewFruit() {
 
     // Position aim at top center
     const x = gameContainer.clientWidth / 2;
-    const y = 80;
+    const y = 130;
 
     // Create Ghost Body (Sensor + Static)
     ghostBody = Bodies.circle(x, y, currentFruitType.radius, {
@@ -229,7 +229,7 @@ function handleMove(clientX) {
     if (x < radius + WALL_THICKNESS / 2) x = radius + WALL_THICKNESS / 2;
     if (x > rect.width - radius - WALL_THICKNESS / 2) x = rect.width - radius - WALL_THICKNESS / 2;
 
-    Body.setPosition(ghostBody, { x: x, y: 80 });
+    Body.setPosition(ghostBody, { x: x, y: 130 });
 }
 
 function handleInputDown(clientX) {
@@ -307,7 +307,7 @@ function handleCollision(event) {
                 // Midpoint
                 const x = (bodyA.position.x + bodyB.position.x) / 2;
                 const y = (bodyA.position.y + bodyB.position.y) / 2;
-                
+
                 // Effect
                 createPopEffect(x, y);
 
