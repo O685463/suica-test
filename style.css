@@ -83,3 +83,80 @@ canvas {
   object-fit: contain;
   margin-top: 5px;
 }
+
+/* Game Over Overlay */
+#game-over-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  display: none; /* Hidden by default */
+}
+
+#game-over-overlay.visible {
+  display: flex;
+}
+
+.game-over-text {
+  font-size: 48px;
+  color: white;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
+}
+
+#restart-btn {
+  padding: 15px 30px;
+  font-size: 20px;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+#restart-btn:hover {
+  background-color: #f50057;
+  transform: scale(1.05);
+}
+
+#restart-btn:active {
+  transform: scale(0.95);
+}
+
+/* Score Animation */
+.score-pop {
+  animation: scorePop 0.3s ease-out;
+}
+
+@keyframes scorePop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.5); color: var(--accent-color); }
+  100% { transform: scale(1); }
+}
+
+/* Pop Effect */
+.pop-effect {
+  position: absolute;
+  pointer-events: none;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+  transform: translate(-50%, -50%) scale(0);
+  animation: popExpand 0.4s ease-out forwards;
+}
+
+@keyframes popExpand {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+

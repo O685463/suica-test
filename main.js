@@ -96,6 +96,91 @@ function init() {
 
     // Collision
     Events.on(engine, 'collisionStart', handleCollision);
+
+    // Game Over Check
+    Events.on(engine, 'afterUpdate', checkGameOver);
+
+    // Restart Button
+    document.getElementById('restart-btn').addEventListener('click', resetGame);
+}
+
+const DANGER_LINE_Y = 150; // Y coordinate for game over line
+let gameOverTimestamp = 0;
+let isGameOver = false;
+
+function checkGameOver() {
+    if (isGameOver) return;
+
+    const bodies = Composite.allBodies(world);
+    let potentialGameOver = false;
+
+    for (const body of bodies) {
+        if (body.label === 'wall' || body.label === 'ghost') continue;
+        
+        // Check if any fruit is above the line and is settled (slow velocity)
+        if (body.position.y < DANGER_LINE_Y) {
+            // Check velocity to ensure it's not just flying up temporarily
+            if (body.speed < 0.5) {
+                potentialGameOver = true;
+                break;
+            }
+        }
+    }
+
+    if (potentialGameOver) {
+        if (gameOverTimestamp === 0) {
+            gameOverTimestamp = Date.now();
+        } else if (Date.now() - gameOverTimestamp > 2000) {
+            // 2 seconds over the line
+            triggerGameOver();
+        }
+    } else {
+        gameOverTimestamp = 0;
+    }
+}
+
+function triggerGameOver() {
+    isGameOver = true;
+    disableAction = true;
+    document.getElementById('game-over-overlay').classList.add('visible');
+    document.getElementById('final-score').textContent = score;
+}
+
+function resetGame() {
+    isGameOver = false;
+    gameOverTimestamp = 0;
+    score = 0;
+    scoreElement.textContent = score;
+    disableAction = false;
+    
+    // Remove all fruits
+    const bodies = Composite.allBodies(world);
+    const fruitsToRemove = bodies.filter(b => b.label !== 'wall' && b.label !== 'ghost');
+    World.remove(world, fruitsToRemove);
+
+    document.getElementById('game-over-overlay').classList.remove('visible');
+    
+    // Reset next fruit
+    prepareNewFruit();
+}
+
+function createPopEffect(x, y) {
+    const effect = document.createElement('div');
+    effect.className = 'pop-effect';
+    effect.style.left = `${x}px`;
+    effect.style.top = `${y}px`;
+    gameContainer.appendChild(effect);
+    
+    // Cleanup
+    setTimeout(() => {
+        effect.remove();
+    }, 400); 
+}
+
+function triggerScoreAnimation() {
+    scoreElement.classList.remove('score-pop');
+    void scoreElement.offsetWidth; // trigger reflow
+    scoreElement.classList.add('score-pop');
 }
 
 function prepareNewFruit() {
@@ -156,6 +241,9 @@ function handleInputDown(clientX) {
 function handleRelease() {
     if (disableAction || !ghostBody) return;
 
+    // Prevent dropping if game over logic is mistakenly active or if click is in UI
+    if (isGameOver) return;
+
     console.log('Dropping fruit!');
     disableAction = true;
 
@@ -170,8 +258,10 @@ function handleRelease() {
     addFruit(dropX, dropY, currentFruitType);
 
     setTimeout(() => {
-        disableAction = false;
-        prepareNewFruit();
+        if (!isGameOver) {
+            disableAction = false;
+            prepareNewFruit();
+        }
     }, 500); // Wait a bit before spawning next
 }
 
@@ -217,6 +307,9 @@ function handleCollision(event) {
                 // Midpoint
                 const x = (bodyA.position.x + bodyB.position.x) / 2;
                 const y = (bodyA.position.y + bodyB.position.y) / 2;
+                
+                // Effect
+                createPopEffect(x, y);
 
                 // New fruit
                 const newFruit = FRUITS[index + 1];
@@ -224,6 +317,7 @@ function handleCollision(event) {
 
                 score += newFruit.score;
                 scoreElement.textContent = score;
+                triggerScoreAnimation();
             }
         }
     }
