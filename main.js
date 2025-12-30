@@ -15,9 +15,9 @@ const engine = Engine.create();
 const world = engine.world;
 let render;
 let runner;
-let currentBody = null;
 let currentFruitType = null;
-let nextFruitType = FRUITS[0]; // Start with cherry
+let ghostBody = null; // The static body used for aiming
+let nextFruitType = FRUITS[0];
 let disableAction = false;
 let score = 0;
 
@@ -26,7 +26,6 @@ const scoreElement = document.getElementById('score');
 const nextFruitImg = document.getElementById('next-fruit-img');
 
 function init() {
-    // Mobile responsive dimensions
     const containerWidth = gameContainer.clientWidth;
     const containerHeight = gameContainer.clientHeight;
 
@@ -75,40 +74,47 @@ function init() {
     Runner.run(runner, engine);
 
     updateNextFruitDisp();
-    createNewFruit();
+    prepareNewFruit();
 
-    // Inputs
-    gameContainer.addEventListener('mousemove', handleMove);
-    gameContainer.addEventListener('touchmove', (e) => {
+    // Input Listeners
+    // Use simple singular event handlers to avoid duplicates
+    gameContainer.onmousemove = (e) => handleMove(e.clientX);
+    gameContainer.ontouchmove = (e) => {
         e.preventDefault();
-        handleMove(e.touches[0]);
-    }, { passive: false });
+        handleMove(e.touches[0].clientX);
+    };
 
-    gameContainer.addEventListener('mouseup', handleRelease);
-    gameContainer.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        handleRelease(e);
-    }, { passive: false });
+    gameContainer.onmousedown = (e) => handleInputDown(e.clientX);
+    gameContainer.ontouchstart = (e) => {
+        // e.preventDefault(); // Don't prevent default on start, generally
+        handleInputDown(e.touches[0].clientX);
+    };
+
+    // Release on window to capture drags that go outside
+    window.onmouseup = () => handleRelease();
+    window.ontouchend = () => handleRelease();
 
     // Collision
     Events.on(engine, 'collisionStart', handleCollision);
 }
 
-function createNewFruit() {
-    if (currentBody) return;
+function prepareNewFruit() {
+    if (ghostBody) return;
 
     currentFruitType = nextFruitType;
     updateNextFruitDisp();
 
-    // Position it at top center initially
+    // Position aim at top center
     const x = gameContainer.clientWidth / 2;
     const y = 80;
 
-    currentBody = Bodies.circle(x, y, currentFruitType.radius, {
-        label: currentFruitType.label,
-        isStatic: true, // Holds in place
-        isSensor: true, // Won't collide
+    // Create Ghost Body (Sensor + Static)
+    ghostBody = Bodies.circle(x, y, currentFruitType.radius, {
+        label: 'ghost',
+        isStatic: true,
+        isSensor: true,
         render: {
+            opacity: 0.7, // Slightly transparent to indicate aim state
             sprite: {
                 texture: currentFruitType.img,
                 xScale: (currentFruitType.radius * 2) / 1024,
@@ -117,7 +123,7 @@ function createNewFruit() {
         }
     });
 
-    World.add(world, currentBody);
+    World.add(world, ghostBody);
 }
 
 function updateNextFruitDisp() {
@@ -127,34 +133,46 @@ function updateNextFruitDisp() {
     nextFruitImg.src = nextFruitType.img;
 }
 
-function handleMove(e) {
-    if (disableAction || !currentBody) return;
+function handleMove(clientX) {
+    if (disableAction || !ghostBody) return;
 
     const rect = gameContainer.getBoundingClientRect();
-    let x = e.clientX - rect.left;
+    let x = clientX - rect.left;
 
     // Clamp x
     const radius = currentFruitType.radius;
     if (x < radius + WALL_THICKNESS / 2) x = radius + WALL_THICKNESS / 2;
     if (x > rect.width - radius - WALL_THICKNESS / 2) x = rect.width - radius - WALL_THICKNESS / 2;
 
-    Body.setPosition(currentBody, { x: x, y: 80 });
+    Body.setPosition(ghostBody, { x: x, y: 80 });
 }
 
-function handleRelease(e) {
-    if (disableAction || !currentBody) return;
+function handleInputDown(clientX) {
+    if (disableAction || !ghostBody) return;
+    // Just move the fruit to finger/cursor on down press
+    handleMove(clientX);
+}
 
+function handleRelease() {
+    if (disableAction || !ghostBody) return;
+
+    console.log('Dropping fruit!');
     disableAction = true;
 
-    Body.setStatic(currentBody, false);
-    Body.set(currentBody, { isSensor: false });
+    const dropX = ghostBody.position.x;
+    const dropY = ghostBody.position.y;
 
-    currentBody = null;
+    // Remove Ghost
+    World.remove(world, ghostBody);
+    ghostBody = null;
+
+    // Create Real Dynamic Body
+    addFruit(dropX, dropY, currentFruitType);
 
     setTimeout(() => {
         disableAction = false;
-        createNewFruit();
-    }, 1000);
+        prepareNewFruit();
+    }, 500); // Wait a bit before spawning next
 }
 
 function getFruitTypeIndex(label) {
@@ -164,7 +182,9 @@ function getFruitTypeIndex(label) {
 function addFruit(x, y, fruitType) {
     const body = Bodies.circle(x, y, fruitType.radius, {
         label: fruitType.label,
-        restitution: 0.2, // Bounciness
+        restitution: 0.2,
+        density: 0.001, // Ensure standard density
+        friction: 0.1,
         render: {
             sprite: {
                 texture: fruitType.img,
@@ -183,10 +203,14 @@ function handleCollision(event) {
     for (let i = 0; i < pairs.length; i++) {
         const { bodyA, bodyB } = pairs[i];
 
+        // Ignore ghosts
+        if (bodyA.label === 'ghost' || bodyB.label === 'ghost') continue;
+        if (bodyA.label === 'wall' || bodyB.label === 'wall') continue;
+
         if (bodyA.label === bodyB.label) {
             const index = getFruitTypeIndex(bodyA.label);
 
-            // If it's not the last fruit ('watermelon' or index 10)
+            // If valid merge
             if (index !== -1 && index < FRUITS.length - 1) {
                 World.remove(world, [bodyA, bodyB]);
 
